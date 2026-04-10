@@ -36,7 +36,7 @@ DEFAULT_SETTINGS = {
     'tray_enabled':              True,
     'start_in_tray':             False,
     'taskbar_flash':             True,
-    'minimize_to_tray':          True,
+    'minimize_to_tray':          False,
     'close_to_tray':             True,
     'hide_notification_content': False,
     'monochrome_icon':           False,
