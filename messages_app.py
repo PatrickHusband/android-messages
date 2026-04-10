@@ -28,7 +28,7 @@ def ensure_single_instance():
         return False
 
 # ─── Config ───────────────────────────────────────────────────────────────────
-_APP_DATA_DIR = os.path.join(os.environ.get('APPDATA', ''), 'android-messages')
+_APP_DATA_DIR = os.path.join(os.environ.get('APPDATA', ''), 'google-messages')
 os.makedirs(_APP_DATA_DIR, exist_ok=True)
 CONFIG_PATH = os.path.join(_APP_DATA_DIR, 'config.json')
 
@@ -324,14 +324,14 @@ def update_tray_icon_image():
     except: pass
 
 # ─── Update check ─────────────────────────────────────────────────────────────
-CURRENT_VERSION = '6.0.0'
+CURRENT_VERSION = '6.0.2'
 RELEASES_API = ('https://api.github.com/repos/'
-                'OrangeDrangon/android-messages-desktop/releases/latest')
+                'PatrickHusband/android-messages/releases/latest')
 
 def check_for_updates():
     try:
         req = urllib.request.Request(RELEASES_API,
-                                     headers={'User-Agent': 'AndroidMessagesDesktop'})
+                                     headers={'User-Agent': 'GoogleMessagesDesktop'})
         with urllib.request.urlopen(req, timeout=8) as r:
             data = json.loads(r.read().decode())
         latest = data.get('tag_name', '').lstrip('v')
@@ -340,8 +340,8 @@ def check_for_updates():
             except: return (0,)
         if latest and _ver(latest) > _ver(CURRENT_VERSION):
             def on_click(_):
-                webbrowser.open('https://github.com/OrangeDrangon/'
-                                'android-messages-desktop/releases/latest')
+                webbrowser.open('https://github.com/PatrickHusband/'
+                                'android-messages/releases/latest')
             win11_toast('Update Available',
                         f'Version {latest} is available. Click to download.',
                         on_click=on_click)
@@ -449,9 +449,10 @@ class Api:
         about_win = webview.create_window(
             'About \u2013 Google Messages', about_url, **kw)
 
-        def _poll_and_hide_about_menu():
-            """Poll for the About window's form and hide its MenuStrip.
-            More reliable than events.loaded \u2014 no callback timing issues."""
+        def _poll_and_restore_menu():
+            """WinForms controls can only have one parent. When pywebview creates
+            the About window, it accidentally moves the global MenuStrip into it!
+            We catch this and move it back to the main window."""
             main = _main_form
             for _ in range(40):      # 40 × 100 ms = 4 seconds max
                 time.sleep(0.1)
@@ -462,13 +463,23 @@ class Api:
                             strips = [c for c in form.Controls
                                       if type(c).__name__ == 'MenuStrip']
                             if strips:
-                                _menu_set_visible(form, False)
-                                return   # done — menu hidden
+                                def _move_back():
+                                    try:
+                                        strip = strips[0]
+                                        form.Controls.Remove(strip)
+                                        form.MainMenuStrip = None
+                                        if main and not main.Controls.Contains(strip):
+                                            main.Controls.Add(strip)
+                                            main.MainMenuStrip = strip
+                                        strip.Visible = _menu_visible
+                                    except: pass
+                                _winform_invoke(main, _move_back)
+                                return   # done
                 except: pass
-        threading.Thread(target=_poll_and_hide_about_menu, daemon=True).start()
+        threading.Thread(target=_poll_and_restore_menu, daemon=True).start()
 
     def open_github(self):
-        webbrowser.open('https://github.com/OrangeDrangon/android-messages-desktop')
+        webbrowser.open('https://github.com/PatrickHusband/android-messages')
 
     def check_updates_now(self):
         threading.Thread(target=check_for_updates, daemon=True).start()
@@ -714,9 +725,5 @@ def create_app():
 
 if __name__ == '__main__':
     if not ensure_single_instance():
-        ctypes.windll.user32.MessageBoxW(
-            0,
-            'Google Messages Desktop is already running.\nCheck the system tray.',
-            'Already Running', 0x40)
         sys.exit(0)
     create_app()
