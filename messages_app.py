@@ -382,31 +382,53 @@ class Api:
         if settings.get('taskbar_flash'):
             flash_taskbar()
 
-    def trigger_notification_with_content(self, title, body):
+    def trigger_notification_with_content(self, title, body, avatar_url=''):
         global _unread_count
         _unread_count += 1
         update_tray_icon_image()
         def _toast():
+            if settings.get('hide_notification_content', False):
+                t, b, avatar_url_ = 'Android Messages', 'New message', ''
+            else:
+                t = title or 'Android Messages'
+                b = body  or 'New message'
+                avatar_url_ = avatar_url or ''
+            def on_click(args=None):
+                global window_is_hidden, _unread_count
+                try:
+                    window.show(); window_is_hidden = False
+                    _unread_count = 0
+                    update_tray_icon_image()
+                    stop_flash_taskbar()
+                    hwnd = find_main_hwnd()
+                    if hwnd:
+                        ctypes.windll.user32.SetForegroundWindow(hwnd)
+                except: pass
+            # Resolve icon: use contact avatar URL if available, else app icon
+            icon_path = get_resource_path('icon.png')
+            if avatar_url_ and avatar_url_.startswith('http'):
+                try:
+                    import tempfile, os as _os
+                    ext = '.jpg'
+                    if 'png' in avatar_url_: ext = '.png'
+                    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=ext,
+                                                      dir=_APP_DATA_DIR)
+                    with urllib.request.urlopen(avatar_url_, timeout=3) as r:
+                        tmp.write(r.read())
+                    tmp.close()
+                    icon_path = tmp.name
+                except: pass
+            toasted = False
             try:
-                icon_path = get_resource_path('icon.png')
-                if settings.get('hide_notification_content', False):
-                    t, b = 'Android Messages', 'New message'
-                else:
-                    t = title or 'Android Messages'
-                    b = body  or 'New message'
-                def on_click(args):
-                    global window_is_hidden, _unread_count
-                    try:
-                        window.show(); window_is_hidden = False
-                        _unread_count = 0
-                        update_tray_icon_image()
-                        stop_flash_taskbar()
-                        hwnd = find_main_hwnd()
-                        if hwnd:
-                            ctypes.windll.user32.SetForegroundWindow(hwnd)
-                    except: pass
                 win11_toast(t, b, icon=icon_path, on_click=on_click)
+                toasted = True
             except: pass
+            if not toasted:
+                # Fallback: pystray tray balloon (always works)
+                try:
+                    if tray_icon:
+                        tray_icon.notify(b, t)
+                except: pass
         threading.Thread(target=_toast, daemon=True).start()
         if settings.get('taskbar_flash'):
             flash_taskbar()
@@ -520,12 +542,13 @@ INJECTED_JS = r"""
     if (window._amd_injected) return;
     window._amd_injected = true;
 
-    // Intercept Google Messages' Notification API → win11toast
+    // Attempt to intercept window.Notification (belt-and-suspenders;
+    // Google Messages uses a Service Worker so this may not fire)
     var _Orig = window.Notification;
     function FakeNotification(title, opts) {
         if (window.pywebview && window.pywebview.api) {
             window.pywebview.api.trigger_notification_with_content(
-                title, (opts && opts.body) ? opts.body : '');
+                title, (opts && opts.body) ? opts.body : '', '');
         }
         return { close: function() {} };
     }
@@ -534,19 +557,63 @@ INJECTED_JS = r"""
     FakeNotification.prototype         = _Orig ? _Orig.prototype : {};
     window.Notification = FakeNotification;
 
-    // Clear unread badge when window is focused
-    window.addEventListener('focus', function() {
-        if (window.pywebview && window.pywebview.api)
-            window.pywebview.api.mark_as_read();
-    });
+    // NOTE: We do NOT mark_as_read on window focus — the tray dot should only
+    // clear when the unread count in the title actually drops to 0.
 
-    // Fallback: taskbar flash from title badge count
+    // Scrape the top conversation in the sidebar for rich notification content.
+    // aria-label on list items is the most stable: "Name, snippet, time ago"
+    function _scrapeLatest() {
+        try {
+            var SELECTORS = [
+                'mws-conversation-list-item',
+                'a[href*="/web/conversations/"]',
+                '[data-e2e-conversation-id]'
+            ];
+            var items = null;
+            for (var s = 0; s < SELECTORS.length; s++) {
+                items = document.querySelectorAll(SELECTORS[s]);
+                if (items.length) break;
+            }
+            if (!items || !items.length) return {};
+            var el = items[0];
+
+            // aria-label: "Name, snippet, time" — most stable source
+            var aria = el.getAttribute('aria-label') || '';
+            if (aria) {
+                var parts = aria.split(',').map(function(p){ return p.trim(); });
+                var name    = parts[0] || '';
+                // Middle parts are the snippet; last part is usually a timestamp
+                var snippet = parts.slice(1, parts.length > 2 ? -1 : undefined).join(', ');
+                var img  = el.querySelector('img[src*="googleusercontent"], img[src*="google"], img[src*="lh3"]');
+                return { name: name, body: snippet, avatar: img ? img.src : '' };
+            }
+
+            // Fallback: text node hunting
+            var nameEl = el.querySelector('[class*="name"], [class*="Name"], h2, h3, strong');
+            var bodyEl = el.querySelector('[class*="snippet"], [class*="preview"], [class*="body"], p');
+            var img2   = el.querySelector('img[src]');
+            return {
+                name:   nameEl ? nameEl.textContent.trim().split('\n')[0] : '',
+                body:   bodyEl ? bodyEl.textContent.trim().split('\n')[0] : '',
+                avatar: img2   ? img2.src : ''
+            };
+        } catch(e) { return {}; }
+    }
+
+    // Primary notification trigger: watch title for (N) unread badge.
     var _lastCount = 0;
     setInterval(function() {
         if (!window.pywebview || !window.pywebview.api) return;
         var m = document.title.match(/\((\d+)\)/);
         var count = m ? parseInt(m[1], 10) : 0;
-        if (count > _lastCount) window.pywebview.api.trigger_notification();
+        if (count > _lastCount) {
+            var diff = count - _lastCount;
+            var info = _scrapeLatest();
+            var name   = info.name   || 'Android Messages';
+            var body   = info.body   || (diff === 1 ? 'New message' : diff + ' new messages');
+            var avatar = info.avatar || '';
+            window.pywebview.api.trigger_notification_with_content(name, body, avatar);
+        }
         if (count === 0 && _lastCount > 0) window.pywebview.api.mark_as_read();
         _lastCount = count;
     }, 1500);
@@ -613,8 +680,18 @@ def create_app():
     window.events.closing   += on_closing
     window.events.minimized += on_minimized
 
+    def _inject_js():
+        """Re-inject our JS overrides. Safe to call on every page load
+        because the script guards itself with window._amd_injected."""
+        try:
+            window.run_js(INJECTED_JS)
+        except: pass
+
+    # Re-inject on every page navigation (e.g. after Google sign-in redirect)
+    window.events.loaded += _inject_js
+
     def on_loaded(win):
-        win.run_js(INJECTED_JS)
+        _inject_js()
 
         def _init():
             # Cache the main form BEFORE the page title might change it
