@@ -412,7 +412,7 @@ class Api:
         about_url  = 'file:///' + about_path.replace('\\', '/')
         rect = get_window_rect()
         aw, ah = 400, 480
-        kw = dict(width=aw, height=ah, resizable=False, on_top=True, js_api=self)
+        kw = dict(width=aw, height=ah, resizable=False, on_top=True, js_api=self, frameless=True, easy_drag=True)
         if rect:
             mx, my, mw, mh = rect
             kw['x'] = mx + (mw - aw) // 2
@@ -421,31 +421,6 @@ class Api:
         global about_win
         about_win = webview.create_window(
             'About \u2013 Google Messages', about_url, **kw)
-            
-        def _poll_and_restore_menu():
-            main = _main_form
-            for _ in range(100):
-                time.sleep(0.01)
-                try:
-                    from System.Windows.Forms import Application
-                    for form in Application.OpenForms:
-                        if form is not main:
-                            strips = [c for c in form.Controls if type(c).__name__ == 'MenuStrip']
-                            for strip in strips:
-                                def _move_back():
-                                    try:
-                                        form.Controls.Remove(strip)
-                                        form.MainMenuStrip = None
-                                        if main and not main.Controls.Contains(strip):
-                                            main.Controls.Add(strip)
-                                            main.MainMenuStrip = strip
-                                        strip.Visible = _menu_visible
-                                    except: pass
-                                _winform_invoke(main, _move_back)
-                            if strips:
-                                return
-                except: pass
-        threading.Thread(target=_poll_and_restore_menu, daemon=True).start()
             
     def close_about(self):
         global about_win
