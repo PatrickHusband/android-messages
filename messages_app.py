@@ -326,7 +326,7 @@ def update_tray_icon_image():
 # ─── Update check ─────────────────────────────────────────────────────────────
 CURRENT_VERSION = '6.0.2'
 RELEASES_API = ('https://api.github.com/repos/'
-                'PatrickHusband/android-messages/releases/latest')
+                'PatrickHusband/google-messages/releases/latest')
 
 def check_for_updates():
     try:
@@ -341,7 +341,7 @@ def check_for_updates():
         if latest and _ver(latest) > _ver(CURRENT_VERSION):
             def on_click(_):
                 webbrowser.open('https://github.com/PatrickHusband/'
-                                'android-messages/releases/latest')
+                                'google-messages/releases/latest')
             win11_toast('Update Available',
                         f'Version {latest} is available. Click to download.',
                         on_click=on_click)
@@ -479,7 +479,7 @@ class Api:
         threading.Thread(target=_poll_and_restore_menu, daemon=True).start()
 
     def open_github(self):
-        webbrowser.open('https://github.com/PatrickHusband/android-messages')
+        webbrowser.open('https://github.com/PatrickHusband/google-messages')
 
     def check_updates_now(self):
         threading.Thread(target=check_for_updates, daemon=True).start()
