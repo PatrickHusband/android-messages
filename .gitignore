@@ -1,0 +1,19 @@
+# PyInstaller build output
+build/
+dist/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# App data / user config (stored in %APPDATA%)
+config.json
+
+# Debug files
+hwnd_debug*.txt
+
+# OS
+Thumbs.db
+desktop.ini
+.DS_Store
