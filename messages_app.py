@@ -388,18 +388,15 @@ class Api:
         update_tray_icon_image()
         def _toast():
             if settings.get('hide_notification_content', False):
-                t, b, avatar_url_ = 'Android Messages', 'New message', ''
+                t, b, avatar_url_ = 'Google Messages', 'New message', ''
             else:
-                t = title or 'Android Messages'
+                t = title or 'Google Messages'
                 b = body  or 'New message'
                 avatar_url_ = avatar_url or ''
             def on_click(args=None):
                 global window_is_hidden, _unread_count
                 try:
                     window.show(); window_is_hidden = False
-                    _unread_count = 0
-                    update_tray_icon_image()
-                    stop_flash_taskbar()
                     hwnd = find_main_hwnd()
                     if hwnd:
                         ctypes.windll.user32.SetForegroundWindow(hwnd)
@@ -450,7 +447,7 @@ class Api:
             kw['x'] = mx + (mw - aw) // 2
             kw['y'] = my + (mh - ah) // 2
         about_win = webview.create_window(
-            'About \u2013 Android Messages', about_url, **kw)
+            'About \u2013 Google Messages', about_url, **kw)
 
         def _poll_and_hide_about_menu():
             """Poll for the About window's form and hide its MenuStrip.
@@ -609,7 +606,7 @@ INJECTED_JS = r"""
         if (count > _lastCount) {
             var diff = count - _lastCount;
             var info = _scrapeLatest();
-            var name   = info.name   || 'Android Messages';
+            var name   = info.name   || 'Google Messages';
             var body   = info.body   || (diff === 1 ? 'New message' : diff + ' new messages');
             var avatar = info.avatar || '';
             window.pywebview.api.trigger_notification_with_content(name, body, avatar);
@@ -659,7 +656,7 @@ def setup_tray():
             pystray.MenuItem('Check for Updates', api.check_updates_now),
             pystray.MenuItem('Quit',              safe_quit),
         )
-        tray_icon = pystray.Icon('Android Messages', image, 'Android Messages', tray_menu)
+        tray_icon = pystray.Icon('Google Messages', image, 'Google Messages', tray_menu)
         tray_icon.run()
     except: pass
 
@@ -675,7 +672,7 @@ def create_app():
     if x is not None and y is not None:
         kw['x'], kw['y'] = x, y
 
-    window = webview.create_window('Android Messages',
+    window = webview.create_window('Google Messages',
                                    'https://messages.google.com/web/', **kw)
     window.events.closing   += on_closing
     window.events.minimized += on_minimized
@@ -719,7 +716,7 @@ if __name__ == '__main__':
     if not ensure_single_instance():
         ctypes.windll.user32.MessageBoxW(
             0,
-            'Android Messages Desktop is already running.\nCheck the system tray.',
+            'Google Messages Desktop is already running.\nCheck the system tray.',
             'Already Running', 0x40)
         sys.exit(0)
     create_app()
