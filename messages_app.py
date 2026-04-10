@@ -295,7 +295,7 @@ def update_tray_icon_image():
     except: pass
 
 # ─── Update check ─────────────────────────────────────────────────────────────
-CURRENT_VERSION = '6.0.2'
+CURRENT_VERSION = '6.0.3'
 RELEASES_API = ('https://api.github.com/repos/'
                 'PatrickHusband/google-messages/releases/latest')
 
@@ -315,7 +315,8 @@ def check_for_updates():
                                 'google-messages/releases/latest')
             win11_toast('Update Available',
                         f'Version {latest} is available. Click to download.',
-                        on_click=on_click)
+                        on_click=on_click,
+                        app_id='Google Messages Desktop')
     except: pass
 
 # ─── Window events ────────────────────────────────────────────────────────────
@@ -388,7 +389,7 @@ class Api:
                 except: pass
             toasted = False
             try:
-                win11_toast(t, b, icon=icon_path, on_click=on_click)
+                win11_toast(t, b, icon=icon_path, on_click=on_click, app_id='Google Messages Desktop')
                 toasted = True
             except: pass
             if not toasted:
@@ -546,30 +547,20 @@ INJECTED_JS = r"""
     // clear when the unread count in the title actually drops to 0.
 
     // Scrape the top conversation in the sidebar for rich notification content.
-    // aria-label on list items is the most stable: "Name, snippet, time ago"
     function _scrapeLatest() {
         try {
-            var SELECTORS = [
-                'mws-conversation-list-item',
-                'a[href*="/web/conversations/"]',
-                '[data-e2e-conversation-id]'
-            ];
-            var items = null;
-            for (var s = 0; s < SELECTORS.length; s++) {
-                items = document.querySelectorAll(SELECTORS[s]);
-                if (items.length) break;
-            }
-            if (!items || !items.length) return {};
-            var el = items[0];
+            // Find the most prominent unread item by aria-label
+            var el = document.querySelector('[aria-label*="unread" i], [aria-label*="Unread" i], mws-conversation-list-item');
+            if (!el) return {};
 
-            // aria-label: "Name, snippet, time" — most stable source
+            // aria-label: "Unread, Name, snippet, time"
             var aria = el.getAttribute('aria-label') || '';
             if (aria) {
                 var parts = aria.split(',').map(function(p){ return p.trim(); });
-                var name    = parts[0] || '';
-                // Middle parts are the snippet; last part is usually a timestamp
-                var snippet = parts.slice(1, parts.length > 2 ? -1 : undefined).join(', ');
-                var img  = el.querySelector('img[src*="googleusercontent"], img[src*="google"], img[src*="lh3"]');
+                var startIndex = parts[0].toLowerCase().indexOf('unread') !== -1 ? 1 : 0;
+                var name    = parts[startIndex] || '';
+                var snippet = parts.slice(startIndex + 1, parts.length > (startIndex + 1) ? -1 : undefined).join(', ');
+                var img  = el.querySelector('img[src*="googleusercontent"], img[src*="google"], img[src*="lh3"], img[src]');
                 return { name: name, body: snippet, avatar: img ? img.src : '' };
             }
 
@@ -585,12 +576,21 @@ INJECTED_JS = r"""
         } catch(e) { return {}; }
     }
 
-    // Primary notification trigger: watch title for (N) unread badge.
+    // Primary notification trigger: watch title for (N) unread badge and DOM!
     var _lastCount = 0;
     setInterval(function() {
         if (!window.pywebview || !window.pywebview.api) return;
+        
+        // Count from title
         var m = document.title.match(/\((\d+)\)/);
-        var count = m ? parseInt(m[1], 10) : 0;
+        var titleCount = m ? parseInt(m[1], 10) : 0;
+        
+        // Count from DOM (survives window focus)
+        var domCount = document.querySelectorAll('[aria-label*="unread" i], [aria-label*="Unread" i]').length;
+        
+        // The true count is the max. If title drops to 0 but DOM still says 1, it's 1.
+        var count = Math.max(titleCount, domCount);
+        
         if (count > _lastCount) {
             var diff = count - _lastCount;
             var info = _scrapeLatest();
@@ -663,9 +663,13 @@ def create_app():
     raw_x, raw_y = settings.get('saved_window_x'), settings.get('saved_window_y')
     x = int(raw_x) if isinstance(raw_x, (int, float)) else None
     y = int(raw_y) if isinstance(raw_y, (int, float)) else None
-    kw = dict(width=w, height=h, min_size=(600, 400), js_api=api)
+    initially_hidden = settings.get('start_in_tray', False)
+    kw = dict(width=w, height=h, min_size=(600, 400), js_api=api, hidden=initially_hidden)
     if x is not None and y is not None:
         kw['x'], kw['y'] = x, y
+        
+    global window_is_hidden
+    window_is_hidden = initially_hidden
 
     window = webview.create_window('Google Messages',
                                    'https://messages.google.com/web/', **kw)
