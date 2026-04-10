@@ -295,7 +295,7 @@ def update_tray_icon_image():
     except: pass
 
 # ─── Update check ─────────────────────────────────────────────────────────────
-CURRENT_VERSION = '6.0.3'
+CURRENT_VERSION = '6.0.4'
 RELEASES_API = ('https://api.github.com/repos/'
                 'PatrickHusband/google-messages/releases/latest')
 
