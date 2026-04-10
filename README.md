@@ -1,4 +1,4 @@
-# Android Messages Desktop
+# Google Messages Desktop
 
 A lightweight, native Windows desktop client for [Google Messages](https://messages.google.com/web/) — built with Python and WebView2.
 
@@ -19,13 +19,13 @@ A lightweight, native Windows desktop client for [Google Messages](https://messa
 - ✅ Single-instance enforcement
 - ✅ About window
 - ✅ Update checker
-- ✅ Settings persisted in `%APPDATA%\android-messages\config.json`
+- ✅ Settings persisted in `%APPDATA%\google-messages\config.json`
 
 ---
 
 ## Download (No Install Required)
 
-Head to the [**Releases**](https://github.com/PatrickHusband/android-messages/releases/latest) page and download `Android Messages Desktop.exe`.
+Head to the [**Releases**](https://github.com/PatrickHusband/google-messages/releases/latest) page and download `Google Messages Desktop.exe`.
 
 **Requirements:**
 - Windows 10 or Windows 11
@@ -41,8 +41,8 @@ All app data is stored locally on your machine:
 
 | Location | Contents |
 |---|---|
-| `%APPDATA%\android-messages\config.json` | App settings (window size, tray prefs, etc.) |
-| `%APPDATA%\android-messages\EBWebView\` | WebView2 session data (cookies / Google login) |
+| `%APPDATA%\google-messages\config.json` | App settings (window size, tray prefs, etc.) |
+| `%APPDATA%\google-messages\EBWebView\` | WebView2 session data (cookies / Google login) |
 
 No data is sent anywhere other than to Google Messages directly.
 
@@ -62,16 +62,16 @@ pip install pywebview pyinstaller pystray Pillow win11toast pythonnet
 ### Clone and Build
 
 ```bash
-git clone https://github.com/PatrickHusband/android-messages.git
-cd android-messages
+git clone https://github.com/PatrickHusband/google-messages.git
+cd google-messages
 
-pyinstaller "Android Messages Desktop.spec" --clean
+pyinstaller "Google Messages Desktop.spec" --clean
 ```
 
 The standalone executable will be output to:
 
 ```
-dist/Android Messages Desktop.exe
+dist/Google Messages Desktop.exe
 ```
 
 ### Running from Source (without building)
@@ -83,13 +83,13 @@ python messages_app.py
 ### Project Structure
 
 ```
-android-messages/
+google-messages/
 ├── messages_app.py                  ← Main application source
 ├── about.html                       ← About window UI
 ├── about_icon.png                   ← About window hero image
 ├── icon.ico                         ← Application icon (exe/taskbar)
 ├── icon.png                         ← Tray icon source
-├── Android Messages Desktop.spec    ← PyInstaller build configuration
+├── Google Messages Desktop.spec     ← PyInstaller build configuration
 └── README.md
 ```
 
