@@ -411,7 +411,7 @@ class Api:
         about_path = get_resource_path('about.html')
         about_url  = 'file:///' + about_path.replace('\\', '/')
         rect = get_window_rect()
-        aw, ah = 400, 480
+        aw, ah = 400, 520
         kw = dict(width=aw, height=ah, resizable=False, on_top=True, js_api=self, frameless=True, easy_drag=True)
         if rect:
             mx, my, mw, mh = rect
