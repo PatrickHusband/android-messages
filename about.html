@@ -179,7 +179,7 @@
     </svg>
     GitHub
   </button>
-  <button class="btn btn-primary" id="btn-close" onclick="window.close()">
+  <button class="btn btn-primary" id="btn-close" onclick="window.pywebview ? window.pywebview.api.close_about() : window.close()">
     Close
   </button>
 </div>

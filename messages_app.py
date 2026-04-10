@@ -410,42 +410,23 @@ class Api:
         about_url  = 'file:///' + about_path.replace('\\', '/')
         rect = get_window_rect()
         aw, ah = 400, 480
-        kw = dict(width=aw, height=ah, resizable=False, on_top=True)
+        # Make the About window frameless to prevent it from stealing the WinForms MenuStrip
+        kw = dict(width=aw, height=ah, resizable=False, on_top=True, frameless=True, easy_drag=True)
         if rect:
             mx, my, mw, mh = rect
             kw['x'] = mx + (mw - aw) // 2
             kw['y'] = my + (mh - ah) // 2
+            
+        global about_win
         about_win = webview.create_window(
             'About \u2013 Google Messages', about_url, **kw)
-
-        def _poll_and_restore_menu():
-            """WinForms controls can only have one parent. When pywebview creates
-            the About window, it accidentally moves the global MenuStrip into it!
-            We catch this and move it back to the main window."""
-            main = _main_form
-            for _ in range(40):      # 40 × 100 ms = 4 seconds max
-                time.sleep(0.1)
-                try:
-                    from System.Windows.Forms import Application
-                    for form in Application.OpenForms:
-                        if form is not main:
-                            strips = [c for c in form.Controls
-                                      if type(c).__name__ == 'MenuStrip']
-                            if strips:
-                                def _move_back():
-                                    try:
-                                        strip = strips[0]
-                                        form.Controls.Remove(strip)
-                                        form.MainMenuStrip = None
-                                        if main and not main.Controls.Contains(strip):
-                                            main.Controls.Add(strip)
-                                            main.MainMenuStrip = strip
-                                        strip.Visible = _menu_visible
-                                    except: pass
-                                _winform_invoke(main, _move_back)
-                                return   # done
-                except: pass
-        threading.Thread(target=_poll_and_restore_menu, daemon=True).start()
+            
+    def close_about(self):
+        try:
+            for w in webview.windows:
+                if w.title == 'About \u2013 Google Messages':
+                    w.destroy()
+        except: pass
 
     def open_github(self):
         webbrowser.open('https://github.com/PatrickHusband/google-messages')
