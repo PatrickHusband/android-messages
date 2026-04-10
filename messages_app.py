@@ -423,14 +423,13 @@ class Api:
             'About \u2013 Google Messages', about_url, **kw)
             
         def _poll_and_nuke_about_menu():
-            main = _main_form
             # Poll for up to 3 seconds until we succeed
             for _ in range(300):
                 time.sleep(0.01)
                 try:
                     from System.Windows.Forms import Application
                     for form in Application.OpenForms:
-                        if form is not main:
+                        if form.Text and ('About' in form.Text):
                             if not form.IsHandleCreated:
                                 continue
                             strips = [c for c in form.Controls if type(c).__name__ == 'MenuStrip']
