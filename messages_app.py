@@ -238,8 +238,10 @@ def _menu_apply_checkmarks(form):
     _winform_invoke(form, _do)
 
 def _cache_main_form():
-    """Capture the WinForms Form reference ONCE (before the page title changes it)."""
+    """Capture the WinForms Form reference ONCE."""
     global _main_form
+    if _main_form is not None:
+        return
     try:
         from System.Windows.Forms import Application
         for form in Application.OpenForms:
@@ -410,8 +412,7 @@ class Api:
         about_url  = 'file:///' + about_path.replace('\\', '/')
         rect = get_window_rect()
         aw, ah = 400, 480
-        # Make the About window frameless to prevent it from stealing the WinForms MenuStrip
-        kw = dict(width=aw, height=ah, resizable=False, on_top=True, frameless=True, easy_drag=True)
+        kw = dict(width=aw, height=ah, resizable=False, on_top=True, js_api=self)
         if rect:
             mx, my, mw, mh = rect
             kw['x'] = mx + (mw - aw) // 2
@@ -421,11 +422,33 @@ class Api:
         about_win = webview.create_window(
             'About \u2013 Google Messages', about_url, **kw)
             
+        def _poll_and_nuke_about_menu():
+            main = _main_form
+            for _ in range(40):
+                time.sleep(0.1)
+                try:
+                    from System.Windows.Forms import Application
+                    for form in Application.OpenForms:
+                        if form is not main:
+                            strips = [c for c in form.Controls if type(c).__name__ == 'MenuStrip']
+                            for strip in strips:
+                                def _nuke():
+                                    try:
+                                        form.Controls.Remove(strip)
+                                        form.MainMenuStrip = None
+                                        strip.Dispose()
+                                    except: pass
+                                _winform_invoke(form, _nuke)
+                            if strips:
+                                return
+                except: pass
+        threading.Thread(target=_poll_and_nuke_about_menu, daemon=True).start()
+            
     def close_about(self):
+        global about_win
         try:
-            for w in webview.windows:
-                if w.title == 'About \u2013 Google Messages':
-                    w.destroy()
+            if about_win:
+                about_win.destroy()
         except: pass
 
     def open_github(self):
