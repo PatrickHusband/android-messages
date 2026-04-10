@@ -265,40 +265,9 @@ def show_menu_bar():
     settings['menu_visible'] = True
     save_settings_file()
 
-# ─── Alt-key hook (show hidden menu on Alt press) ────────────────────────────
-def _hook_proc(nCode, wParam, lParam):
-    global _alt_solo
-    if nCode >= 0:
-        kb = ctypes.cast(lParam, ctypes.POINTER(KBDLLHOOKSTRUCT)).contents
-        if wParam in (WM_SYSKEYDOWN, WM_KEYDOWN):
-            if kb.vkCode == VK_MENU:
-                _alt_solo = True        # Alt pressed — start tracking
-            elif _alt_solo:
-                _alt_solo = False       # Another key while Alt held — not solo
-        elif wParam in (WM_SYSKEYUP, WM_KEYUP):
-            if kb.vkCode == VK_MENU:
-                # Solo Alt released: show menu if hidden.
-                # Note: WebView2 runs in msedgewebview2.exe (child process),
-                # so PID checks on GetForegroundWindow() are unreliable.
-                # We simply show whenever Alt is solo-pressed and menu is hidden.
-                if _alt_solo and not _menu_visible:
-                    show_menu_bar()
-                _alt_solo = False
-    return ctypes.windll.user32.CallNextHookEx(None, nCode, wParam, lParam)
-
+# Removed unstable global keyboard hook.
 def _install_keyboard_hook():
-    global _hook_ref
-    HOOKPROC = ctypes.WINFUNCTYPE(ctypes.c_long, ctypes.c_int, ctypes.c_uint,
-                                  ctypes.POINTER(KBDLLHOOKSTRUCT))
-    _hook_ref = HOOKPROC(_hook_proc)
-    hmod = ctypes.windll.kernel32.GetModuleHandleW(None)
-    hook_id = ctypes.windll.user32.SetWindowsHookExW(WH_KEYBOARD_LL, _hook_ref, hmod, 0)
-    if hook_id:
-        msg = wintypes.MSG()
-        while ctypes.windll.user32.GetMessageW(ctypes.byref(msg), None, 0, 0):
-            ctypes.windll.user32.TranslateMessage(ctypes.byref(msg))
-            ctypes.windll.user32.DispatchMessageW(ctypes.byref(msg))
-        ctypes.windll.user32.UnhookWindowsHookEx(hook_id)
+    pass
 
 # ─── Tray icon ────────────────────────────────────────────────────────────────
 def make_icon_image(monochrome=False, red_dot=False):
@@ -508,7 +477,7 @@ def build_menu():
             MenuSeparator(),
             MenuAction('Toggle Full Screen', lambda: window.toggle_fullscreen()),
             MenuSeparator(),
-            MenuAction('Hide Menu Bar  (Alt to show again)', hide_menu_bar),
+            MenuAction('Hide Menu Bar  (Restore via Tray Icon)', hide_menu_bar),
         ]),
         Menu('Tray', [
             MenuAction('Enable System Tray Icon',
@@ -661,8 +630,15 @@ def setup_tray():
                 if window_is_hidden: window.show(); window_is_hidden = False
                 else: window.hide(); window_is_hidden = True
             except: pass
+        def toggle_menu_bar():
+            if _menu_visible:
+                hide_menu_bar()
+            else:
+                show_menu_bar()
+                
         tray_menu = pystray.Menu(
             pystray.MenuItem('Show / Hide',       toggle_window,    default=True),
+            pystray.MenuItem('Toggle Menu Bar',   toggle_menu_bar),
             pystray.MenuItem('About',             api.open_about),
             pystray.MenuItem('Check for Updates', api.check_updates_now),
             pystray.MenuItem('Quit',              safe_quit),
