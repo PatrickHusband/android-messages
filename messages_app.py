@@ -424,22 +424,27 @@ class Api:
             
         def _poll_and_nuke_about_menu():
             main = _main_form
-            for _ in range(100):
+            # Poll for up to 3 seconds until we succeed
+            for _ in range(300):
                 time.sleep(0.01)
                 try:
                     from System.Windows.Forms import Application
                     for form in Application.OpenForms:
                         if form is not main:
+                            if not form.IsHandleCreated:
+                                continue
                             strips = [c for c in form.Controls if type(c).__name__ == 'MenuStrip']
-                            for strip in strips:
+                            if strips:
                                 def _nuke():
                                     try:
-                                        strip.Visible = False
-                                        form.Controls.Remove(strip)
+                                        for strip in strips:
+                                            strip.Visible = False
+                                            form.Controls.Remove(strip)
                                         form.MainMenuStrip = None
                                     except: pass
                                 _winform_invoke(form, _nuke)
-                            if strips:
+                            else:
+                                # If the form exists and handle created, and no menu strips, we succeeded!
                                 return
                 except: pass
         threading.Thread(target=_poll_and_nuke_about_menu, daemon=True).start()
