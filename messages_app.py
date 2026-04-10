@@ -422,6 +422,28 @@ class Api:
         about_win = webview.create_window(
             'About \u2013 Google Messages', about_url, **kw)
             
+        def _poll_and_nuke_about_menu():
+            main = _main_form
+            for _ in range(100):
+                time.sleep(0.01)
+                try:
+                    from System.Windows.Forms import Application
+                    for form in Application.OpenForms:
+                        if form is not main:
+                            strips = [c for c in form.Controls if type(c).__name__ == 'MenuStrip']
+                            for strip in strips:
+                                def _nuke():
+                                    try:
+                                        strip.Visible = False
+                                        form.Controls.Remove(strip)
+                                        form.MainMenuStrip = None
+                                    except: pass
+                                _winform_invoke(form, _nuke)
+                            if strips:
+                                return
+                except: pass
+        threading.Thread(target=_poll_and_nuke_about_menu, daemon=True).start()
+        
     def close_about(self):
         global about_win
         try:
